@@ -45,6 +45,7 @@ export default {
   build: {},
 
   serverMiddleware: [
-    { path: '/api/v1', handler: '~/serverMiddleware/apiServer.js' }
+    { path: '/api/v1', handler: '~/serverMiddleware/apiServer.js' },
+    { path: '/api/erc20/v1', handler: '~/serverMiddleware/erc20balance.js' },
   ],
 }
