@@ -1,5 +1,6 @@
 import express from 'express'
 import { ethers } from 'ethers'
+import { Contract, Provider } from 'ethers-multicall'
 
 const app = express()
 
@@ -11,31 +12,33 @@ const usdtAddress = '0xdAC17F958D2ee523a2206206994597C13D831ec7'
 
 const shortAbi = ['function balanceOf(address) view returns (uint)']
 
-const allowedTokens = ['ETH', 'USDC', 'DAI', 'USDT']
 const erc20Tokens = {
-  USDC: { contract: new ethers.Contract(usdcAddress, shortAbi, provider), decimals: 6 },
-  DAI: { contract: new ethers.Contract(daiAddress, shortAbi, provider), decimals: 18 },
-  USDT: { contract: new ethers.Contract(usdtAddress, shortAbi, provider), decimals: 6 },
+  USDC: { contract: new Contract(usdcAddress, shortAbi), decimals: 6 },
+  DAI: { contract: new Contract(daiAddress, shortAbi), decimals: 18 },
+  USDT: { contract: new Contract(usdtAddress, shortAbi), decimals: 6 },
 }
 
 app.get("/balance", async (req, res) => {
   try {
-    const { address, token } = req.query
-  
-    let value
-  
-    if (!allowedTokens.includes(token)) {
-      res.status(422).json({ reason: 'unsupported token' })
-    } else if (token === 'ETH') {
-      const balance = await provider.getBalance(address)
-      value = ethers.utils.formatEther(balance)
-    } else {
-      const { contract, decimals } = erc20Tokens[token]
-      const balance = await contract.balanceOf(address)
-      value = ethers.utils.formatUnits(balance, decimals)
+    const { address } = req.query
+
+    const ethcallProvider = new Provider(provider)
+    await ethcallProvider.init()
+
+    const calls = [ethcallProvider.getEthBalance(address)]
+    Object.values(erc20Tokens).forEach(token => {
+      calls.push(token.contract.balanceOf(address))
+    })
+
+    const [ETH, USDC, DAI, USDT] = await ethcallProvider.all(calls)
+    const balances = {
+      ETH: ethers.utils.formatEther(ETH),
+      USDC: ethers.utils.formatUnits(USDC, erc20Tokens.USDC.decimals),
+      DAI: ethers.utils.formatUnits(DAI, erc20Tokens.DAI.decimals),
+      USDT: ethers.utils.formatUnits(USDT, erc20Tokens.USDT.decimals),
     }
 
-    res.json({ value })
+    res.json({ balances })
   } catch (e) {
     res.status(500).json(e)
   }

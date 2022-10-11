@@ -15,26 +15,39 @@
         />
         </v-card-text>
         <v-card-actions>
-          Check balance:
           <v-spacer />
-          <v-btn
-            v-for="token in tokens"
-            :key="token"
-            color="primary"
-            @click="getBalance(token)"
-          >
-            {{ token }}
+          <v-btn color="primary" @click="getBalance">
+            Check balance
           </v-btn>
         </v-card-actions>
       </v-card>
       <div class="mb-10"></div>
       <v-card>
-        <v-card-title>
+        <!-- <v-card-title>
           Balance
-        </v-card-title>
+        </v-card-title> -->
         <v-card-text>
-          <v-skeleton-loader v-if="isLoading" type="text" />
-          <strong v-else>{{ balance.value }} {{ balance.token }}</strong>
+          <v-simple-table>
+            <template #default>
+              <thead>
+                <tr>
+                  <th class="text-left">
+                    Token
+                  </th>
+                  <th class="text-left">
+                    Balance
+                  </th>
+                </tr>
+              </thead>
+              <v-skeleton-loader v-if="isLoading" type="table-cell@4" />
+              <tbody v-else>
+                <tr v-for="balance, token in balances" :key="token">
+                  <td>{{ token }}</td>
+                  <td>{{ balance }}</td>
+                </tr>
+              </tbody>
+            </template>
+          </v-simple-table>
         </v-card-text>
       </v-card>
     </v-col>
@@ -46,25 +59,18 @@ export default {
   name: 'BalancePage',
   data() {
     return {
-      tokens: ['ETH', 'USDC', 'DAI', 'USDT'],
       address: '',
       error: '',
-      balance: {
-        value: '',
-        token: '',
-      },
+      balances: {},
       isLoading: false,
     }
   },
   methods: {
     cleanup() {
       this.error = ''
-      this.balance = {
-        value: '',
-        token: '',
-      }
+      this.balances = {}
     },
-    async getBalance(token) {
+    async getBalance() {
       try {
         this.cleanup()
 
@@ -75,13 +81,12 @@ export default {
 
         this.isLoading = true
         
-        const { value } = await this.$axios.$get(
+        const { balances } = await this.$axios.$get(
           'api/erc20/v1/balance',
-          { params: { token, address: this.address } },
+          { params: { address: this.address } },
         )
 
-        this.balance.value = value
-        this.balance.token = token
+        this.balances = balances
       } catch (e) {
         this.error = e.response.data.reason
       } finally {
