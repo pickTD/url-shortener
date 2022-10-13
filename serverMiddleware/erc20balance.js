@@ -1,44 +1,107 @@
 import express from 'express'
 import { ethers } from 'ethers'
 import { Contract, Provider } from 'ethers-multicall'
+import tokenList from '../constants/tokens'
+import trustwalletTokenList from '../constants/trustwallet-eth-tokenlist'
 
 const app = express()
 
-const provider = ethers.getDefaultProvider()
+const trustwalletTokens = trustwalletTokenList.reduce((acc, token) => {
+  const { symbol, name, address, decimals, logoURI } = token
+  return {
+    ...acc,
+    [address]: {
+      key: symbol.toLowerCase(),
+      type: 'token',
+      symbol,
+      name,
+      address,
+      decimals,
+      logoURI,
+    }
+  }
+}, {})
 
-const usdcAddress = '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48'
-const daiAddress = '0x6B175474E89094C44Da98b954EedeAC495271d0F'
-const usdtAddress = '0xdAC17F958D2ee523a2206206994597C13D831ec7'
-
+// const provider = ethers.getDefaultProvider()
+const provider = new ethers.providers.InfuraProvider('homestead', '2bb5dd70dcd04f8698d6bcead1fa47c6')
 const shortAbi = ['function balanceOf(address) view returns (uint)']
 
-const erc20Tokens = {
-  USDC: { contract: new Contract(usdcAddress, shortAbi), decimals: 6 },
-  DAI: { contract: new Contract(daiAddress, shortAbi), decimals: 18 },
-  USDT: { contract: new Contract(usdtAddress, shortAbi), decimals: 6 },
+const tokens = tokenList.slice(1).map(token => ({
+  ...token,
+  contract: new Contract(token.address, shortAbi),
+}))
+
+const retry = (fn, address, fromBlock, retries = 5, err = null) => {
+  if (retries === 0 || fromBlock === 0) {
+    return Promise.reject(err)
+  }
+
+  return fn(address, fromBlock)
+    .catch(err => {
+      return retry(fn, address, Math.round(fromBlock / 10), retries - 1, err)
+    })
+}
+
+const getLogs = (address, fromBlock) => {
+  const filter = {
+    address: null,
+    fromBlock,
+    topics: [
+      ethers.utils.id("Transfer(address,address,uint256)"),
+      null,
+      ethers.utils.hexZeroPad(address, 32)
+    ]
+  }
+
+  return provider.getLogs(filter)
+}
+
+const getOtherTokens = async address => {
+  const currentBlock = await provider.getBlockNumber()
+  const fromBlock = -currentBlock
+
+  const logs = await retry(getLogs, address, fromBlock)
+  
+  const defaultTokens = tokenList.map(token => token.address)
+  const addresses = logs
+    .map(entry => entry.address)
+    .filter(address => !defaultTokens.includes(address))
+  const addressesFiltered = [...new Set(addresses)]
+    .filter(address => Boolean(trustwalletTokens[address]))
+
+  return addressesFiltered.map(address => trustwalletTokens[address])
 }
 
 app.get("/balance", async (req, res) => {
   try {
     const { address } = req.query
 
+    const otherTokens = await getOtherTokens(address)
+
     const ethcallProvider = new Provider(provider)
     await ethcallProvider.init()
 
-    const calls = [ethcallProvider.getEthBalance(address)]
-    Object.values(erc20Tokens).forEach(token => {
-      calls.push(token.contract.balanceOf(address))
-    })
+    const addressTokens = [
+      ...tokens,
+      ...otherTokens.map(token => ({
+        ...token,
+        contract: new Contract(token.address, shortAbi),
+      }))
+    ]
 
-    const [ETH, USDC, DAI, USDT] = await ethcallProvider.all(calls)
-    const balances = {
-      ETH: ethers.utils.formatEther(ETH),
-      USDC: ethers.utils.formatUnits(USDC, erc20Tokens.USDC.decimals),
-      DAI: ethers.utils.formatUnits(DAI, erc20Tokens.DAI.decimals),
-      USDT: ethers.utils.formatUnits(USDT, erc20Tokens.USDT.decimals),
-    }
+    const calls = [
+      ethcallProvider.getEthBalance(address),
+      ...addressTokens.map(token => token.contract.balanceOf(address)),
+    ]
 
-    res.json({ balances })
+    const balances = await ethcallProvider.all(calls)
+
+    const tokensWithBalances = [...tokenList, ...otherTokens].map((token, idx) => ({
+      ...token,
+      balance: ethers.utils.formatUnits(balances[idx], token.decimals)
+    }))
+
+    res.json({ balances: tokensWithBalances })
   } catch (e) {
     res.status(500).json(e)
   }
