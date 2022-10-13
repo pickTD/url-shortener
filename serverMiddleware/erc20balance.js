@@ -1,8 +1,8 @@
 import express from 'express'
 import { ethers } from 'ethers'
 import { Contract, Provider } from 'ethers-multicall'
-import tokenList from '../constants/tokens'
-import trustwalletTokenList from '../constants/trustwallet-eth-tokenlist'
+import tokenList from '~/constants/tokens'
+import trustwalletTokenList from '~/constants/trustwallet-eth-tokenlist'
 
 const app = express()
 
