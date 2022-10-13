@@ -1,55 +1,49 @@
 <template>
   <v-row justify="center" align="center">
     <v-col cols="12" sm="8" md="6">
-      <v-card>
-        <v-card-title class="headline">
-          Address
-        </v-card-title>
-        <v-card-text>
-          <v-text-field
+        <v-text-field
           v-model="address"
           :error-messages="error"
           autofocus
           clearable
-          placeholder="Enter  here"
+          placeholder="Enter address here"
         />
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer />
-          <v-btn color="primary" @click="getBalance">
-            Check balance
-          </v-btn>
-        </v-card-actions>
-      </v-card>
+        <v-btn color="primary" @click="getBalance">
+          Check balance
+        </v-btn>
       <div class="mb-10"></div>
-      <v-card>
-        <!-- <v-card-title>
-          Balance
-        </v-card-title> -->
-        <v-card-text>
-          <v-simple-table>
-            <template #default>
-              <thead>
-                <tr>
-                  <th class="text-left">
-                    Token
-                  </th>
-                  <th class="text-left">
-                    Balance
-                  </th>
-                </tr>
-              </thead>
-              <v-skeleton-loader v-if="isLoading" type="table-cell@4" />
-              <tbody v-else>
-                <tr v-for="balance, token in balances" :key="token">
-                  <td>{{ token }}</td>
-                  <td>{{ balance }}</td>
-                </tr>
-              </tbody>
-            </template>
-          </v-simple-table>
-        </v-card-text>
-      </v-card>
+      <v-skeleton-loader v-if="isLoading" type="table-cell" />
+      <template v-else-if="balances.length">
+        <v-row dense>
+          <v-col
+            v-for="token in sortedBalances"
+            :key="token.key + token.address"
+            cols="6"
+          >
+            <v-card>
+              <v-card-text class="d-flex align-center">
+                <v-img
+                  :src="token.logoURI"
+                  :title="token.name"
+                  class="flex-grow-0 mr-5"
+                  width="40"
+                  height="40"
+                  contain
+                />
+                <div class="flex-grow-1">
+                  <v-tooltip top>
+                    <template #activator="{ on }">
+                      <span v-on="on">{{ formatBalance(token.balance) }}</span>
+                    </template>
+                    <span>{{ token.balance }}</span>
+                  </v-tooltip>
+                  <b>{{ token.symbol }}</b>
+                </div>
+              </v-card-text>
+            </v-card>
+          </v-col>
+        </v-row>
+      </template>
     </v-col>
   </v-row>
 </template>
@@ -61,14 +55,26 @@ export default {
     return {
       address: '',
       error: '',
-      balances: {},
+      balances: [],
       isLoading: false,
+    }
+  },
+  computed: {
+    sortedBalances() {
+      return [...this.balances].sort((a, b) => {
+        if (+a.balance > 0 && +b.balance === 0) {
+          return -1
+        } else if (+a.balance === 0 && +b.balance > 0) {
+          return 1
+        }
+        return 0
+      })
     }
   },
   methods: {
     cleanup() {
       this.error = ''
-      this.balances = {}
+      this.balances = []
     },
     async getBalance() {
       try {
@@ -92,6 +98,9 @@ export default {
       } finally {
         this.isLoading = false
       }
+    },
+    formatBalance(balance) {
+      return (+balance).toFixed(2)
     }
   }
 }
