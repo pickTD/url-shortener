@@ -23,7 +23,7 @@
             <v-card>
               <v-card-text class="d-flex align-center">
                 <v-img
-                  :src="token.logoURI"
+                  :src="token.logoURI || '/no-coin-image.png'"
                   :title="token.name"
                   class="flex-grow-0 mr-5"
                   width="40"
