@@ -19,10 +19,6 @@ export default {
     host: '0.0.0.0',
   },
 
-  css: [],
-
-  plugins: [],
-
   components: true,
 
   buildModules: [
@@ -41,8 +37,6 @@ export default {
   vuetify: {
     customVariables: ['~/assets/variables.scss'],
   },
-
-  build: {},
 
   serverMiddleware: [
     { path: '/api/v1', handler: '~/serverMiddleware/apiServer.js' },

@@ -1,7 +1,7 @@
 import express from 'express'
 import { nanoid } from 'nanoid'
 import isUrl from 'is-url'
-import URLRepository from '~/api/urlRepository'
+import URLRepository from './repositories/urlRepository'
 
 const app = express()
 app.use(express.json())
