@@ -23,7 +23,7 @@ const trustwalletTokens = trustwalletTokenList.reduce((acc, token) => {
 }, {})
 
 // const provider = ethers.getDefaultProvider()
-const provider = new ethers.providers.InfuraProvider('homestead', '2bb5dd70dcd04f8698d6bcead1fa47c6')
+const provider = new ethers.providers.InfuraProvider('homestead', process.env.INFURA_KEY)
 const shortAbi = ['function balanceOf(address) view returns (uint)']
 
 const tokens = tokenList.slice(1).map(token => ({
