@@ -31,9 +31,9 @@
                   contain
                 />
                 <div class="flex-grow-1">
-                  <v-tooltip top>
+                  <v-tooltip top open-delay="500">
                     <template #activator="{ on }">
-                      <span v-on="on">{{ formatBalance(token.balance) }}</span>
+                      <span style="cursor: alias" v-on="on">{{ formatBalance(token.balance) }}</span>
                     </template>
                     <span>{{ token.balance }}</span>
                   </v-tooltip>
@@ -100,7 +100,10 @@ export default {
       }
     },
     formatBalance(balance) {
-      return (+balance).toFixed(2)
+      return parseFloat(balance).toLocaleString({
+        maximumFractionDigits: 4,
+        roundingPriority: 'lessPrecision'
+      })
     }
   }
 }

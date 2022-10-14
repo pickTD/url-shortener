@@ -2,11 +2,20 @@ import express from 'express'
 import { ethers } from 'ethers'
 import { Contract, Provider } from 'ethers-multicall'
 import omit from 'lodash/omit'
-import tokenList from './constants/tokens'
+import defaultTokenList from './constants/tokens'
 import trustwalletTokenList from './constants/trustwallet-eth-tokenlist'
+import simpleAbi from './abi/simpleAbi'
+import { getAddressTokens } from './utils/getAddressTokens'
 
 const app = express()
+const provider = new ethers.providers.InfuraProvider('homestead', process.env.INFURA_KEY)
+const ethcallProvider = new Provider(provider)
 
+const defaultTokensAddresses = defaultTokenList.slice(1).map(token => token.address.toLowerCase())
+const defaultTokensWithContracts = defaultTokenList.slice(1).map(token => ({
+  ...token,
+  contract: new Contract(token.address, simpleAbi),
+}))
 const trustwalletTokens = trustwalletTokenList.reduce((acc, token) => {
   const { symbol, name, address, decimals, logoURI } = token
   return {
@@ -23,67 +32,20 @@ const trustwalletTokens = trustwalletTokenList.reduce((acc, token) => {
   }
 }, {})
 
-// const provider = ethers.getDefaultProvider()
-const provider = new ethers.providers.InfuraProvider('homestead', process.env.INFURA_KEY)
-const shortAbi = [
-  'function name() public view returns (string)',
-  'function symbol() public view returns (string)',
-  'function decimals() public view returns (uint8)',
-  'function balanceOf(address _owner) public view returns (uint256 balance)'
-]
-const ethcallProvider = new Provider(provider)
-
-const tokens = tokenList.slice(1).map(token => ({
-  ...token,
-  contract: new Contract(token.address, shortAbi),
-}))
-
-const retry = (fn, address, fromBlock, retries = 5, err = null) => {
-  if (retries === 0 || fromBlock === 0) {
-    return Promise.reject(err)
-  }
-
-  return fn(address, fromBlock)
-    .catch(err => {
-      return retry(fn, address, Math.round(fromBlock / 10), retries - 1, err)
-    })
-}
-
-const getLogs = (address, fromBlock) => {
-  const filter = {
-    address: null,
-    fromBlock,
-    topics: [
-      ethers.utils.id("Transfer(address,address,uint256)"),
-      null,
-      ethers.utils.hexZeroPad(address, 32)
-    ]
-  }
-
-  return provider.getLogs(filter)
-}
-
-const getOtherTokens = async address => {
-  const currentBlock = await provider.getBlockNumber()
-  const fromBlock = -currentBlock
-
-  const logs = await retry(getLogs, address, fromBlock)
-  
-  const defaultTokens = tokenList.map(token => token.address)
-  const addresses = logs
-    .map(entry => entry.address)
-    .filter(address => !defaultTokens.includes(address))
-  const addressesFiltered = [...new Set(addresses)]
+const getNonDefaultTokens = async address => {
+  const addresses = await getAddressTokens(address, provider)
+  const nonDefaultTokensAddresses = addresses.filter(address => !defaultTokensAddresses.includes(address.toLowerCase()))
     // .filter(address => Boolean(trustwalletTokens[address]))
 
-  return await Promise.all(addressesFiltered.map(async address => {
+  return await Promise.all(nonDefaultTokensAddresses.map(async address => {
+    const contract = new Contract(address, simpleAbi)
+
     if (trustwalletTokens[address]) {
       return {
         ...trustwalletTokens[address],
-        contract: new Contract(address, shortAbi)
+        contract,
       }
     } else {
-      const contract = new Contract(address, shortAbi)
       const calls = [contract.name(), contract.symbol(), contract.decimals()]
       const [name, symbol, decimals] = await ethcallProvider.all(calls)
       return {
@@ -105,10 +67,10 @@ app.get("/balance", async (req, res) => {
 
     await ethcallProvider.init()
 
-    const otherTokens = await getOtherTokens(address)
+    const nonDefaultTokens = await getNonDefaultTokens(address)
     const addressTokens = [
-      ...tokens,
-      ...otherTokens,
+      ...defaultTokensWithContracts,
+      ...nonDefaultTokens,
     ]
 
     const calls = [
@@ -118,7 +80,7 @@ app.get("/balance", async (req, res) => {
 
     const balances = await ethcallProvider.all(calls)
 
-    const tokensWithBalances = [...tokenList, ...otherTokens].map((token, idx) => ({
+    const tokensWithBalances = [...defaultTokenList, ...nonDefaultTokens].map((token, idx) => ({
       ...omit(token, 'contract'),
       balance: ethers.utils.formatUnits(balances[idx], token.decimals)
     }))
