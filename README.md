@@ -1,4 +1,4 @@
-# url-shortener
+# Simple blockchain explorer
 
 ## Build Setup
 
@@ -13,7 +13,3 @@ $ yarn dev
 $ yarn build
 $ yarn start
 ```
-
-## Pages
-
-/balance - basic ERC20 balance explorer
