@@ -1,7 +1,7 @@
 export default {
   head: {
-    titleTemplate: '%s - url-shortener',
-    title: 'url-shortener',
+    titleTemplate: '%s - Insta blockchain explorer',
+    title: '',
     htmlAttrs: {
       lang: 'en',
     },
@@ -11,7 +11,7 @@ export default {
       { hid: 'description', name: 'description', content: '' },
       { name: 'format-detection', content: 'telephone=no' },
     ],
-    link: [{ rel: 'icon', type: 'image/x-icon', href: '/favicon.ico' }],
+    link: [{ rel: 'icon', type: 'image/x-icon', href: '/icon_64x64.png' }],
   },
 
   server: {
@@ -39,7 +39,6 @@ export default {
   },
 
   serverMiddleware: [
-    { path: '/api/v1', handler: '~/serverMiddleware/apiServer.js' },
-    { path: '/api/erc20/v1', handler: '~/serverMiddleware/erc20balance.js' },
+    { path: '/api/v1', handler: '~/server/index.js' },
   ],
 }
