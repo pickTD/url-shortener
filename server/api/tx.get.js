@@ -2,12 +2,12 @@ import { ethers } from 'ethers'
 import { Contract, Provider } from 'ethers-multicall'
 import trustwalletTokens from '../tokenlists/trustwallet'
 import simpleAbi from '../abi/contractAbi'
+import * as aavev2 from '../protocols/aavev2'
 
 const provider = new ethers.providers.InfuraProvider('homestead', process.env.INFURA_KEY)
 const ethcallProvider = new Provider(provider) 
-const iface = new ethers.utils.Interface([
-  'event Transfer(address indexed from, address indexed to, uint256 amount)'
-])
+const iface = new ethers.utils.Interface(['event Transfer(address indexed from, address indexed to, uint256 amount)'])
+const aave2Iface = new ethers.utils.Interface(aavev2.abi)
 
 export default defineEventHandler(async (event) => {
   try {
@@ -62,6 +62,35 @@ export default defineEventHandler(async (event) => {
         }
       }))
 
+    const aavev2Events = await Promise.all(logs
+      .filter(entry => entry.address === aavev2.address)
+      .map(async entry => {
+        const { name, args: { reserve, amount } } = aave2Iface.parseLog(entry)
+        
+        const underlyingAsset = {
+          symbol: '',
+          logoURI: ''
+        }
+        if (trustwalletTokens[reserve]) {
+          const token = trustwalletTokens[reserve]
+          underlyingAsset.symbol = token.symbol
+          underlyingAsset.logoURI = token.logoURI
+          if (amount) {
+            underlyingAsset.amount = ethers.utils.formatUnits(amount, token.decimals)
+          }
+        } else {
+          const contract = new Contract(reserve, simpleAbi)
+          const calls = [contract.symbol(), contract.decimals()]
+          const [symbol, decimals] = await ethcallProvider.all(calls)
+          underlyingAsset.symbol = symbol
+          if (amount) {
+            underlyingAsset.amount = ethers.utils.formatUnits(amount, decimals)
+          }
+        }
+
+        return { name, underlyingAsset, protocolName: aavev2.name }
+      }))
+
     const details = {
       transactionHash,
       blockNumber,
@@ -69,11 +98,12 @@ export default defineEventHandler(async (event) => {
       from,
       to,
       transfers,
+      aavev2Events,
       status: status === 1 ? 'Success' : 'Failure',
       value: ethers.utils.formatEther(value),
     }
 
-    return { details, raw: { receipt, transaction } }
+    return { details }
   } catch (e) {
     sendError(event, createError({ statusMessage: e.reason }))
   }
