@@ -1,4 +1,4 @@
-export default [
+const list = [
   {
     chainId: 1,
     asset: 'c60_t0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2',
@@ -3788,3 +3788,19 @@ export default [
     pairs: [],
   },
 ]
+
+export default list.reduce((acc, token) => {
+  const { symbol, name, address, decimals, logoURI } = token
+  return {
+    ...acc,
+    [address]: {
+      key: symbol.toLowerCase(),
+      type: 'token',
+      symbol,
+      name,
+      address,
+      decimals,
+      logoURI,
+    }
+  }
+}, {})

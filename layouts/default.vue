@@ -1,15 +1,5 @@
 <template>
-  <v-app>
-    <v-main>
-      <v-container fill-height>
-        <Nuxt />
-      </v-container>
-    </v-main>
-  </v-app>
+  <div class="layout">
+    <NuxtPage />
+  </div>
 </template>
-
-<script>
-export default {
-  name: 'DefaultLayout',
-}
-</script>

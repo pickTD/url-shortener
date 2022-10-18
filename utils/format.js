@@ -1,0 +1,1 @@
+export const formatBalance = balance => parseFloat(balance).toLocaleString({ roundingPriority: 'lessPrecision' })
