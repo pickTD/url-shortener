@@ -1,6 +1,6 @@
 import { ethers } from 'ethers'
 import { Contract, Provider } from 'ethers-multicall'
-import omit from 'lodash/omit'
+import omit from 'lodash/omit.js'
 import defaultTokenList from '../tokenlists/default'
 import trustwalletTokens from '../tokenlists/trustwallet'
 import simpleAbi from '../abi/contractAbi'
